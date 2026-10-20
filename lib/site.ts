@@ -1,9 +1,9 @@
 // Reemplazá estos valores por los datos reales antes de publicar.
 export const site = {
-  url: 'https://tuappsoft.vercel.app/',
+  url: 'https://tuappweb.vercel.app/',
   email: '',
   // Formato internacional sin "+" ni espacios, por ejemplo: 5491122334455. Dejalo vacío para usar solo el formulario.
-  whatsapp: '5493472504651',
+  whatsapp: '5493512153191',
 }
 
 export function whatsappHref(message: string) {
