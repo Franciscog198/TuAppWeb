@@ -15,7 +15,7 @@ Titular legal: Francisco Garcia
 
 Nombre comercial: TuApp Solutions
 
-Correo electrónico: contacto@tuappsolutions.com.ar
+Correo electrónico: hola@tuappsolutions.com.ar
 
 Teléfono: +54 3472 504651
 
