@@ -41,12 +41,12 @@ Ubicación: Leones, Córdoba, Argentina
           <p>{`© ${new Date().getFullYear()} TuApp. Todos los derechos reservados.`}</p>
           <ul className="flex flex-wrap gap-6">
             <li>
-              <a href="#" className="hover:text-white">
+              <a href="https://www.tuappsolutions.com.ar/politica-de-privacidad/" className="hover:text-white">
                 Política de privacidad
               </a>
             </li>
             <li>
-              <a href="#" className="hover:text-white">
+              <a href="https://www.tuappsolutions.com.ar/terminos-y-condiciones/" className="hover:text-white">
                 Términos y condiciones
               </a>
             </li>
