@@ -22,8 +22,8 @@ Teléfono: +54 3472 504651
 </p><p className="leading-relaxed text-white/60">
 Ubicación: Leones, Córdoba, Argentina
             </p>-->
-              <p className="leading-relaxed text-white/60">-->
-Correo electrónico: hola@tuappsolutions.com.ar
+              <p className="leading-relaxed text-white/60">
+        hola@tuappsolutions.com.ar
 </p>
           </div>
           <nav aria-label="Pie de página">
