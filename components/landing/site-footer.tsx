@@ -11,19 +11,20 @@ export function SiteFooter() {
             <p className="leading-relaxed text-white/60">
               Software, equipamiento y automatizaciones que se adaptan a tu negocio.
     </p>       
-            <p className="leading-relaxed text-white/60">
+            <!--<p className="leading-relaxed text-white/60">
 Titular legal: Francisco Garcia
 </p>
             <p className="leading-relaxed text-white/60">
 Nombre comercial: TuApp Solutions
-</p><p className="leading-relaxed text-white/60">
-Correo electrónico: hola@tuappsolutions.com.ar
-</p><p className="leading-relaxed text-white/60">
+</p>
+              <p className="leading-relaxed text-white/60">
 Teléfono: +54 3472 504651
 </p><p className="leading-relaxed text-white/60">
 Ubicación: Leones, Córdoba, Argentina
-            
-            </p>
+            </p>-->
+              <p className="leading-relaxed text-white/60">-->
+Correo electrónico: hola@tuappsolutions.com.ar
+</p>
           </div>
           <nav aria-label="Pie de página">
             <ul className="grid grid-cols-2 gap-x-12 gap-y-3 sm:grid-cols-3">
