@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conectar WhatsApp Business a la API</title>
+<style>
+  :root {
+    --bg: #f6f7f5;
+    --surface: #ffffff;
+    --text: #1b2420;
+    --muted: #5d6b64;
+    --line: #d9dfdb;
+    --accent: #0e7a4f;
+    --accent-text: #ffffff;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121815;
+      --surface: #1b2420;
+      --text: #eef2ef;
+      --muted: #9aa8a0;
+      --line: #2e3a34;
+      --accent: #3ec78a;
+      --accent-text: #08150f;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  main {
+    width: 100%;
+    max-width: 520px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px;
+  }
+  h1 { margin: 0 0 8px; font-size: 1.4rem; line-height: 1.25; }
+  p { margin: 0 0 20px; color: var(--muted); }
+  button {
+    font: inherit;
+    font-weight: 600;
+    padding: 12px 20px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-text);
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+  button:disabled { opacity: .6; cursor: default; }
+  #estado { margin-top: 20px; color: var(--muted); }
+  #resultado { display: none; margin-top: 20px; }
+  label { display: block; margin: 14px 0 6px; font-weight: 600; font-size: .9rem; }
+  textarea {
+    width: 100%;
+    font: .85rem/1.4 ui-monospace, Consolas, monospace;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    resize: vertical;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Conectar WhatsApp Business a la API</h1>
+  <p>Usá esta página una sola vez para conectar el número que ya tenés en la app del celular. Tené la app abierta en el teléfono.</p>
+  <button id="conectar" type="button">Conectar número</button>
+  <div id="estado" role="status" aria-live="polite"></div>
+  <div id="resultado">
+    <label for="waba">waba_id</label>
+    <textarea id="waba" rows="1" readonly></textarea>
+    <label for="phone">phone_number_id</label>
+    <textarea id="phone" rows="1" readonly></textarea>
+    <label for="codigo">Código para intercambiar por token</label>
+    <textarea id="codigo" rows="4" readonly></textarea>
+  </div>
+</main>
+
+<script>
+  // Reemplazá estos dos valores
+  const APP_ID = '1352905174576476';
+  const CONFIG_ID = '1452780203611241';
+
+  const boton = document.getElementById('conectar');
+  const estado = document.getElementById('estado');
+  const resultado = document.getElementById('resultado');
+
+  window.fbAsyncInit = function () {
+    FB.init({
+      appId: APP_ID,
+      autoLogAppEvents: true,
+      xfbml: true,
+      version: 'v25.0'
+    });
+  };
+
+  // Evento de sesión: trae waba_id y phone_number_id al terminar el flujo
+  window.addEventListener('message', function (event) {
+    if (!/^https:\/\/(www|web)\.facebook\.com$/.test(event.origin)) return;
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type !== 'WA_EMBEDDED_SIGNUP') return;
+      if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' || data.event === 'FINISH') {
+        document.getElementById('waba').value = (data.data && data.data.waba_id) || '';
+        document.getElementById('phone').value = (data.data && data.data.phone_number_id) || '';
+        resultado.style.display = 'block';
+      } else if (data.event === 'CANCEL') {
+        estado.textContent = 'Cancelaste el flujo. Podés volver a intentarlo.';
+        boton.disabled = false;
+      }
+    } catch (e) {
+      // mensajes que no son JSON: se ignoran
+    }
+  });
+
+  boton.addEventListener('click', function () {
+    boton.disabled = true;
+    estado.textContent = 'Abriendo el flujo de Meta…';
+    FB.login(function (response) {
+      const codigo = response.authResponse && response.authResponse.code;
+      if (!codigo) {
+        estado.textContent = 'No se completó la conexión. Podés volver a intentarlo.';
+        boton.disabled = false;
+        return;
+      }
+      document.getElementById('codigo').value = codigo;
+      resultado.style.display = 'block';
+      estado.textContent = 'Listo. Copiá estos tres valores y guardalos.';
+    }, {
+      config_id: CONFIG_ID,
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: {
+        setup: {},
+        featureType: 'whatsapp_business_app_onboarding',
+        sessionInfoVersion: '3'
+      }
+    });
+  });
+</script>
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+</body>
+</html>
