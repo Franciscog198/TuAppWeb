@@ -244,9 +244,12 @@ function actualizarEstado() {
 // CAPTURAR EVENTOS DE WHATSAPP EMBEDDED SIGNUP
 // ==========================================
 
+
 window.addEventListener('message', function (event) {
 
-  // Validar origen de Meta
+  console.log('META ORIGIN:', event.origin);
+  console.log('META MESSAGE:', event.data);
+
   if (!event.origin.endsWith('facebook.com')) {
     return;
   }
@@ -257,32 +260,29 @@ window.addEventListener('message', function (event) {
       ? JSON.parse(event.data)
       : event.data;
 
-    if (
-      !response ||
-      response.type !== 'WA_EMBEDDED_SIGNUP'
-    ) {
+    if (!response || response.type !== 'WA_EMBEDDED_SIGNUP') {
       return;
     }
 
     const data = response.data || {};
 
-    console.log(
-      'Evento WhatsApp Embedded Signup:',
-      response.event
-    );
+    console.log('META EVENT:', response.event);
+    console.log('META DATA:', data);
 
-    // ======================================
-    // CONEXIÓN FINALIZADA
-    // ======================================
+    const wabaId =
+      data.waba_id ||
+      data.messaging_account_ids?.[0] ||
+      data.waba_ids?.[0] ||
+      '';
+
+    const phoneId = data.phone_number_id || '';
 
     if (
       response.event === 'FINISH' ||
-      response.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
+      response.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' ||
+      response.event === 'FINISH_ONLY_WABA' ||
+      response.event === 'FINISH_GRANT_ONLY_API_ACCESS'
     ) {
-
-      const wabaId = data.waba_id || '';
-
-      const phoneId = data.phone_number_id || '';
 
       if (wabaId) {
         campoWaba.value = wabaId;
@@ -293,46 +293,22 @@ window.addEventListener('message', function (event) {
       }
 
       registroRecibido = true;
-
-      console.log('WABA_ID recibido:', !!wabaId);
-
-      console.log('PHONE_NUMBER_ID recibido:', !!phoneId);
-
       actualizarEstado();
 
-    }
+      console.log('WABA_ID:', wabaId || 'NO RECIBIDO');
+      console.log('PHONE_NUMBER_ID:', phoneId || 'NO RECIBIDO');
 
-    // ======================================
-    // CANCELACIÓN
-    // ======================================
+    } else if (response.event === 'CANCEL') {
 
-    else if (response.event === 'CANCEL') {
-
-      estado.textContent =
-        'Cancelaste el proceso. Podés volver a intentarlo.';
-
-      console.warn(
-        'Proceso cancelado:',
-        data.current_step
-      );
+      estado.textContent = 'Proceso cancelado.';
+      console.warn('Cancelación:', data);
 
       boton.disabled = false;
 
-    }
+    } else if (response.event === 'ERROR') {
 
-    // ======================================
-    // ERROR DE META
-    // ======================================
-
-    else if (response.event === 'ERROR') {
-
-      estado.textContent =
-        'Meta informó un error durante la conexión. Revisá la consola.';
-
-      console.error(
-        'Error de Meta:',
-        data.error_message
-      );
+      estado.textContent = 'Meta informó un error.';
+      console.error('ERROR META:', data);
 
       boton.disabled = false;
 
@@ -340,14 +316,12 @@ window.addEventListener('message', function (event) {
 
   } catch (error) {
 
-    console.warn(
-      'Mensaje no procesado:',
-      error
-    );
+    console.error('Error procesando evento:', error);
 
   }
 
 });
+
 
 // ==========================================
 // BOTÓN CONECTAR WHATSAPP
