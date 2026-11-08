@@ -91,6 +91,7 @@
   #estado {
     margin-top: 20px;
     color: var(--muted);
+    overflow-wrap: anywhere;
   }
 
   #resultado {
@@ -145,7 +146,7 @@
     <textarea id="phone" rows="1" readonly></textarea>
 
     <label for="codigo">
-      Código para intercambiar por token
+      Código de autorización
     </label>
     <textarea id="codigo" rows="4" readonly></textarea>
 
@@ -156,11 +157,15 @@
 <script>
 
 // ==========================================
-// CONFIGURACIÓN DE META
+// CONFIGURACIÓN DE META Y CLOUDFLARE
 // ==========================================
 
 const APP_ID = '1655478149503097';
 const CONFIG_ID = '1002519915525872';
+
+const WORKER_URL =
+  'https://whatsapp-relay.fgarciaramirez86.workers.dev';
+
 
 // ==========================================
 // ELEMENTOS HTML
@@ -174,12 +179,20 @@ const campoWaba = document.getElementById('waba');
 const campoPhone = document.getElementById('phone');
 const campoCodigo = document.getElementById('codigo');
 
+
 // ==========================================
 // ESTADOS DE LA CONEXIÓN
 // ==========================================
 
 let codigoRecibido = false;
 let registroRecibido = false;
+
+let codigoAutorizacion = '';
+let wabaIdRecibido = '';
+let phoneIdRecibido = '';
+
+let intercambioIniciado = false;
+
 
 // ==========================================
 // INICIALIZAR FACEBOOK SDK
@@ -198,6 +211,7 @@ window.fbAsyncInit = function () {
 
 };
 
+
 // ==========================================
 // ACTUALIZAR ESTADO DE LA PÁGINA
 // ==========================================
@@ -208,16 +222,16 @@ function actualizarEstado() {
 
   if (
     codigoRecibido &&
-    campoWaba.value &&
-    campoPhone.value
+    wabaIdRecibido &&
+    phoneIdRecibido
   ) {
 
     estado.textContent =
-      'Conexión completada. Se recibieron los tres valores.';
+      'Datos recibidos. Preparando conexión con TuApp...';
 
   } else if (
     codigoRecibido &&
-    !campoWaba.value
+    !wabaIdRecibido
   ) {
 
     estado.textContent =
@@ -231,6 +245,14 @@ function actualizarEstado() {
     estado.textContent =
       'Meta confirmó el registro. Esperando el código de autorización.';
 
+  } else if (
+    registroRecibido &&
+    !phoneIdRecibido
+  ) {
+
+    estado.textContent =
+      'Se recibió el WABA_ID, pero falta el PHONE_NUMBER_ID.';
+
   } else {
 
     estado.textContent =
@@ -240,30 +262,149 @@ function actualizarEstado() {
 
 }
 
+
 // ==========================================
-// CAPTURAR EVENTOS DE WHATSAPP EMBEDDED SIGNUP
+// INTERCAMBIAR CÓDIGO CON CLOUDFLARE
 // ==========================================
 
+async function intercambiarSiListo() {
 
+  // No ejecutar hasta tener los tres datos
+  if (
+    intercambioIniciado ||
+    !codigoAutorizacion ||
+    !wabaIdRecibido ||
+    !phoneIdRecibido
+  ) {
+    return;
+  }
+
+  intercambioIniciado = true;
+
+  estado.textContent =
+    'Enviando autorización a TuApp...';
+
+  try {
+
+    const respuesta = await fetch(
+      WORKER_URL + '/whatsapp/exchange',
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({
+          code: codigoAutorizacion,
+          waba_id: wabaIdRecibido,
+          phone_number_id: phoneIdRecibido
+        })
+      }
+    );
+
+    const datos = await respuesta.json();
+
+    console.log(
+      'Respuesta del Worker:',
+      datos
+    );
+
+    if (!respuesta.ok || !datos.success) {
+
+      throw new Error(
+        datos.error ||
+        datos.message ||
+        'El Worker no pudo completar la conexión.'
+      );
+
+    }
+
+    if (datos.subscribed === true) {
+
+      estado.textContent =
+        '¡WhatsApp conectado correctamente a TuApp!';
+
+      boton.textContent = 'WhatsApp conectado';
+
+    } else {
+
+      estado.textContent =
+        'El token fue guardado, pero la suscripción de WhatsApp quedó pendiente.';
+
+      console.warn(
+        'Suscripción pendiente:',
+        datos
+      );
+
+    }
+
+    // No volver a enviar el mismo código.
+    // El código de autorización es de un solo uso.
+
+  } catch (error) {
+
+    console.error(
+      'Error en el intercambio:',
+      error
+    );
+
+    estado.textContent =
+      'Error al conectar con TuApp: ' + error.message;
+
+    intercambioIniciado = false;
+    boton.disabled = false;
+
+  }
+
+}
+
+
+// ==========================================
+// RECIBIR EVENTOS DE META
+// ==========================================
 
 window.addEventListener('message', function (event) {
 
-  if (!event.origin.endsWith('facebook.com')) {
+  // Validar origen del mensaje
+  let hostname;
+
+  try {
+    hostname = new URL(event.origin).hostname;
+  } catch (error) {
+    return;
+  }
+
+  if (
+    hostname !== 'facebook.com' &&
+    !hostname.endsWith('.facebook.com')
+  ) {
     return;
   }
 
   let response;
 
   try {
+
     response = typeof event.data === 'string'
       ? JSON.parse(event.data)
       : event.data;
+
   } catch (error) {
-    console.log('Mensaje externo ignorado:', event.data);
+
+    console.log(
+      'Mensaje externo ignorado:',
+      event.data
+    );
+
     return;
+
   }
 
-  if (!response || response.type !== 'WA_EMBEDDED_SIGNUP') {
+  if (
+    !response ||
+    response.type !== 'WA_EMBEDDED_SIGNUP'
+  ) {
     return;
   }
 
@@ -279,44 +420,71 @@ window.addEventListener('message', function (event) {
     response.event === 'FINISH_GRANT_ONLY_API_ACCESS'
   ) {
 
-    const wabaId =
+    wabaIdRecibido =
       data.waba_id ||
-      (Array.isArray(data.messaging_account_ids)
-        ? data.messaging_account_ids[0]
-        : data.messaging_account_ids) ||
-      (Array.isArray(data.waba_ids)
-        ? data.waba_ids[0]
-        : data.waba_ids) ||
+      (
+        Array.isArray(data.messaging_account_ids)
+          ? data.messaging_account_ids[0]
+          : data.messaging_account_ids
+      ) ||
+      (
+        Array.isArray(data.waba_ids)
+          ? data.waba_ids[0]
+          : data.waba_ids
+      ) ||
       '';
 
-    const phoneId = data.phone_number_id || '';
+    phoneIdRecibido =
+      data.phone_number_id || '';
 
-    if (wabaId) {
-      campoWaba.value = String(wabaId);
+    if (wabaIdRecibido) {
+      campoWaba.value = String(wabaIdRecibido);
     }
 
-    if (phoneId) {
-      campoPhone.value = String(phoneId);
+    if (phoneIdRecibido) {
+      campoPhone.value = String(phoneIdRecibido);
     }
 
     registroRecibido = true;
 
     actualizarEstado();
 
-    console.log('WABA_ID:', wabaId || 'NO RECIBIDO');
-    console.log('PHONE_NUMBER_ID:', phoneId || 'NO RECIBIDO');
+    console.log(
+      'WABA_ID:',
+      wabaIdRecibido || 'NO RECIBIDO'
+    );
+
+    console.log(
+      'PHONE_NUMBER_ID:',
+      phoneIdRecibido || 'NO RECIBIDO'
+    );
+
+    // Intentar intercambio si el código ya llegó
+    intercambiarSiListo();
 
   } else if (response.event === 'CANCEL') {
 
-    estado.textContent = 'Proceso cancelado.';
-    console.warn('Cancelación:', data);
+    estado.textContent =
+      'Proceso cancelado.';
+
     boton.disabled = false;
+
+    console.warn(
+      'Cancelación de Meta:',
+      data
+    );
 
   } else if (response.event === 'ERROR') {
 
-    estado.textContent = 'Meta informó un error.';
-    console.error('ERROR META:', data);
+    estado.textContent =
+      'Meta informó un error.';
+
     boton.disabled = false;
+
+    console.error(
+      'ERROR META:',
+      data
+    );
 
   }
 
@@ -343,7 +511,8 @@ boton.addEventListener('click', function () {
   estado.textContent =
     'Abriendo conexión con Meta...';
 
-  // Limpiar resultados anteriores
+  // Limpiar datos anteriores
+
   campoWaba.value = '';
   campoPhone.value = '';
   campoCodigo.value = '';
@@ -351,9 +520,16 @@ boton.addEventListener('click', function () {
   codigoRecibido = false;
   registroRecibido = false;
 
+  codigoAutorizacion = '';
+  wabaIdRecibido = '';
+  phoneIdRecibido = '';
+
+  intercambioIniciado = false;
+
   FB.login(function (response) {
 
     // Obtener código de autorización
+
     const codigo =
       response.authResponse &&
       response.authResponse.code;
@@ -365,19 +541,29 @@ boton.addEventListener('click', function () {
 
       boton.disabled = false;
 
+      console.error(
+        'Respuesta de FB.login:',
+        response
+      );
+
       return;
 
     }
+
+    codigoAutorizacion = codigo;
 
     campoCodigo.value = codigo;
 
     codigoRecibido = true;
 
-    actualizarEstado();
-
     console.log(
       'Código de autorización recibido correctamente.'
     );
+
+    actualizarEstado();
+
+    // Intentar intercambio si Meta ya entregó los IDs
+    intercambiarSiListo();
 
   }, {
 
@@ -398,6 +584,7 @@ boton.addEventListener('click', function () {
 
 </script>
 
+
 <!-- FACEBOOK JAVASCRIPT SDK -->
 
 <script
@@ -409,4 +596,3 @@ boton.addEventListener('click', function () {
 
 </body>
 </html>
-
