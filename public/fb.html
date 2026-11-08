@@ -1,9 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Conectar WhatsApp Business a la API</title>
+
 <style>
   :root {
     --bg: #f6f7f5;
@@ -15,6 +17,7 @@
     --accent-text: #ffffff;
     color-scheme: light;
   }
+
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #121815;
@@ -27,7 +30,11 @@
       color-scheme: dark;
     }
   }
-  * { box-sizing: border-box; }
+
+  * {
+    box-sizing: border-box;
+  }
+
   body {
     margin: 0;
     min-height: 100vh;
@@ -39,6 +46,7 @@
     font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
     line-height: 1.5;
   }
+
   main {
     width: 100%;
     max-width: 520px;
@@ -47,8 +55,18 @@
     border-radius: 12px;
     padding: 28px;
   }
-  h1 { margin: 0 0 8px; font-size: 1.4rem; line-height: 1.25; }
-  p { margin: 0 0 20px; color: var(--muted); }
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: 1.4rem;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0 0 20px;
+    color: var(--muted);
+  }
+
   button {
     font: inherit;
     font-weight: 600;
@@ -59,11 +77,34 @@
     color: var(--accent-text);
     cursor: pointer;
   }
-  button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
-  button:disabled { opacity: .6; cursor: default; }
-  #estado { margin-top: 20px; color: var(--muted); }
-  #resultado { display: none; margin-top: 20px; }
-  label { display: block; margin: 14px 0 6px; font-weight: 600; font-size: .9rem; }
+
+  button:focus-visible {
+    outline: 3px solid var(--text);
+    outline-offset: 2px;
+  }
+
+  button:disabled {
+    opacity: .6;
+    cursor: default;
+  }
+
+  #estado {
+    margin-top: 20px;
+    color: var(--muted);
+  }
+
+  #resultado {
+    display: none;
+    margin-top: 20px;
+  }
+
+  label {
+    display: block;
+    margin: 14px 0 6px;
+    font-weight: 600;
+    font-size: .9rem;
+  }
+
   textarea {
     width: 100%;
     font: .85rem/1.4 ui-monospace, Consolas, monospace;
@@ -76,83 +117,322 @@
   }
 </style>
 </head>
+
 <body>
+
 <main>
+
   <h1>Conectar WhatsApp Business a la API</h1>
-  <p>Usá esta página una sola vez para conectar el número que ya tenés en la app del celular. Tené la app abierta en el teléfono.</p>
-  <button id="conectar" type="button">Conectar número</button>
+
+  <p>
+    Usá esta página para conectar el número que ya tenés
+    en la app del celular. Tené la aplicación abierta
+    en el teléfono.
+  </p>
+
+  <button id="conectar" type="button">
+    Conectar número
+  </button>
+
   <div id="estado" role="status" aria-live="polite"></div>
+
   <div id="resultado">
+
     <label for="waba">waba_id</label>
     <textarea id="waba" rows="1" readonly></textarea>
+
     <label for="phone">phone_number_id</label>
     <textarea id="phone" rows="1" readonly></textarea>
-    <label for="codigo">Código para intercambiar por token</label>
+
+    <label for="codigo">
+      Código para intercambiar por token
+    </label>
     <textarea id="codigo" rows="4" readonly></textarea>
+
   </div>
+
 </main>
 
 <script>
-  // Reemplazá estos dos valores
-  const APP_ID = '1655478149503097';
-  const CONFIG_ID = '1002519915525872';
 
-  const boton = document.getElementById('conectar');
-  const estado = document.getElementById('estado');
-  const resultado = document.getElementById('resultado');
+// ==========================================
+// CONFIGURACIÓN DE META
+// ==========================================
 
-  window.fbAsyncInit = function () {
-    FB.init({
-      appId: APP_ID,
-      autoLogAppEvents: true,
-      xfbml: true,
-      version: 'v25.0'
-    });
-  };
+const APP_ID = '1655478149503097';
+const CONFIG_ID = '1002519915525872';
 
-  // Evento de sesión: trae waba_id y phone_number_id al terminar el flujo
-  window.addEventListener('message', function (event) {
-    if (!/^https:\/\/(www|web)\.facebook\.com$/.test(event.origin)) return;
-    try {
-      const data = JSON.parse(event.data);
-      if (data.type !== 'WA_EMBEDDED_SIGNUP') return;
-      if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' || data.event === 'FINISH') {
-        document.getElementById('waba').value = (data.data && data.data.waba_id) || '';
-        document.getElementById('phone').value = (data.data && data.data.phone_number_id) || '';
-        resultado.style.display = 'block';
-      } else if (data.event === 'CANCEL') {
-        estado.textContent = 'Cancelaste el flujo. Podés volver a intentarlo.';
-        boton.disabled = false;
-      }
-    } catch (e) {
-      // mensajes que no son JSON: se ignoran
-    }
+// ==========================================
+// ELEMENTOS HTML
+// ==========================================
+
+const boton = document.getElementById('conectar');
+const estado = document.getElementById('estado');
+const resultado = document.getElementById('resultado');
+
+const campoWaba = document.getElementById('waba');
+const campoPhone = document.getElementById('phone');
+const campoCodigo = document.getElementById('codigo');
+
+// ==========================================
+// ESTADOS DE LA CONEXIÓN
+// ==========================================
+
+let codigoRecibido = false;
+let registroRecibido = false;
+
+// ==========================================
+// INICIALIZAR FACEBOOK SDK
+// ==========================================
+
+window.fbAsyncInit = function () {
+
+  FB.init({
+    appId: APP_ID,
+    autoLogAppEvents: true,
+    xfbml: true,
+    version: 'v25.0'
   });
 
-  boton.addEventListener('click', function () {
-    boton.disabled = true;
-    estado.textContent = 'Abriendo el flujo de Meta…';
-    FB.login(function (response) {
-      const codigo = response.authResponse && response.authResponse.code;
-      if (!codigo) {
-        estado.textContent = 'No se completó la conexión. Podés volver a intentarlo.';
-        boton.disabled = false;
-        return;
+  console.log('Facebook SDK inicializado.');
+
+};
+
+// ==========================================
+// ACTUALIZAR ESTADO DE LA PÁGINA
+// ==========================================
+
+function actualizarEstado() {
+
+  resultado.style.display = 'block';
+
+  if (
+    codigoRecibido &&
+    campoWaba.value &&
+    campoPhone.value
+  ) {
+
+    estado.textContent =
+      'Conexión completada. Se recibieron los tres valores.';
+
+  } else if (
+    codigoRecibido &&
+    !campoWaba.value
+  ) {
+
+    estado.textContent =
+      'Código recibido, pero falta recuperar el WABA_ID.';
+
+  } else if (
+    registroRecibido &&
+    !codigoRecibido
+  ) {
+
+    estado.textContent =
+      'Meta confirmó el registro. Esperando el código de autorización.';
+
+  } else {
+
+    estado.textContent =
+      'Esperando confirmación de Meta...';
+
+  }
+
+}
+
+// ==========================================
+// CAPTURAR EVENTOS DE WHATSAPP EMBEDDED SIGNUP
+// ==========================================
+
+window.addEventListener('message', function (event) {
+
+  // Validar origen de Meta
+  if (!event.origin.endsWith('facebook.com')) {
+    return;
+  }
+
+  try {
+
+    const response = typeof event.data === 'string'
+      ? JSON.parse(event.data)
+      : event.data;
+
+    if (
+      !response ||
+      response.type !== 'WA_EMBEDDED_SIGNUP'
+    ) {
+      return;
+    }
+
+    const data = response.data || {};
+
+    console.log(
+      'Evento WhatsApp Embedded Signup:',
+      response.event
+    );
+
+    // ======================================
+    // CONEXIÓN FINALIZADA
+    // ======================================
+
+    if (
+      response.event === 'FINISH' ||
+      response.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
+    ) {
+
+      const wabaId = data.waba_id || '';
+
+      const phoneId = data.phone_number_id || '';
+
+      if (wabaId) {
+        campoWaba.value = wabaId;
       }
-      document.getElementById('codigo').value = codigo;
-      resultado.style.display = 'block';
-      estado.textContent = 'Listo. Copiá estos tres valores y guardalos.';
-    }, {
-      config_id: CONFIG_ID,
-      response_type: 'code',
-      override_default_response_type: true,
-      extras: {
+
+      if (phoneId) {
+        campoPhone.value = phoneId;
+      }
+
+      registroRecibido = true;
+
+      console.log('WABA_ID recibido:', !!wabaId);
+
+      console.log('PHONE_NUMBER_ID recibido:', !!phoneId);
+
+      actualizarEstado();
+
+    }
+
+    // ======================================
+    // CANCELACIÓN
+    // ======================================
+
+    else if (response.event === 'CANCEL') {
+
+      estado.textContent =
+        'Cancelaste el proceso. Podés volver a intentarlo.';
+
+      console.warn(
+        'Proceso cancelado:',
+        data.current_step
+      );
+
+      boton.disabled = false;
+
+    }
+
+    // ======================================
+    // ERROR DE META
+    // ======================================
+
+    else if (response.event === 'ERROR') {
+
+      estado.textContent =
+        'Meta informó un error durante la conexión. Revisá la consola.';
+
+      console.error(
+        'Error de Meta:',
+        data.error_message
+      );
+
+      boton.disabled = false;
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      'Mensaje no procesado:',
+      error
+    );
+
+  }
+
+});
+
+// ==========================================
+// BOTÓN CONECTAR WHATSAPP
+// ==========================================
+
+boton.addEventListener('click', function () {
+
+  if (!window.FB) {
+
+    estado.textContent =
+      'Facebook SDK todavía no está disponible.';
+
+    return;
+
+  }
+
+  boton.disabled = true;
+
+  estado.textContent =
+    'Abriendo conexión con Meta...';
+
+  // Limpiar resultados anteriores
+  campoWaba.value = '';
+  campoPhone.value = '';
+  campoCodigo.value = '';
+
+  codigoRecibido = false;
+  registroRecibido = false;
+
+  FB.login(function (response) {
+
+    // Obtener código de autorización
+    const codigo =
+      response.authResponse &&
+      response.authResponse.code;
+
+    if (!codigo) {
+
+      estado.textContent =
+        'No se recibió el código de autorización.';
+
+      boton.disabled = false;
+
+      return;
+
+    }
+
+    campoCodigo.value = codigo;
+
+    codigoRecibido = true;
+
+    actualizarEstado();
+
+    console.log(
+      'Código de autorización recibido correctamente.'
+    );
+
+  }, {
+
+    config_id: CONFIG_ID,
+
+    response_type: 'code',
+
+    override_default_response_type: true,
+
+    extras: {
       setup: {},
       version: 'v5'
-      }
-    });
+    }
+
   });
+
+});
+
 </script>
-<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+
+<!-- FACEBOOK JAVASCRIPT SDK -->
+
+<script
+  async
+  defer
+  crossorigin="anonymous"
+  src="https://connect.facebook.net/en_US/sdk.js">
+</script>
+
 </body>
 </html>
+
