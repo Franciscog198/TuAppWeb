@@ -245,78 +245,78 @@ function actualizarEstado() {
 // ==========================================
 
 
-window.addEventListener('message', function (event) {
 
-  console.log('META ORIGIN:', event.origin);
-  console.log('META MESSAGE:', event.data);
+window.addEventListener('message', function (event) {
 
   if (!event.origin.endsWith('facebook.com')) {
     return;
   }
 
-  try {
+  let response;
 
-    const response = typeof event.data === 'string'
+  try {
+    response = typeof event.data === 'string'
       ? JSON.parse(event.data)
       : event.data;
+  } catch (error) {
+    console.log('Mensaje externo ignorado:', event.data);
+    return;
+  }
 
-    if (!response || response.type !== 'WA_EMBEDDED_SIGNUP') {
-      return;
-    }
+  if (!response || response.type !== 'WA_EMBEDDED_SIGNUP') {
+    return;
+  }
 
-    const data = response.data || {};
+  const data = response.data || {};
 
-    console.log('META EVENT:', response.event);
-    console.log('META DATA:', data);
+  console.log('META EVENT:', response.event);
+  console.log('META DATA:', data);
+
+  if (
+    response.event === 'FINISH' ||
+    response.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' ||
+    response.event === 'FINISH_ONLY_WABA' ||
+    response.event === 'FINISH_GRANT_ONLY_API_ACCESS'
+  ) {
 
     const wabaId =
       data.waba_id ||
-      data.messaging_account_ids?.[0] ||
-      data.waba_ids?.[0] ||
+      (Array.isArray(data.messaging_account_ids)
+        ? data.messaging_account_ids[0]
+        : data.messaging_account_ids) ||
+      (Array.isArray(data.waba_ids)
+        ? data.waba_ids[0]
+        : data.waba_ids) ||
       '';
 
     const phoneId = data.phone_number_id || '';
 
-    if (
-      response.event === 'FINISH' ||
-      response.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' ||
-      response.event === 'FINISH_ONLY_WABA' ||
-      response.event === 'FINISH_GRANT_ONLY_API_ACCESS'
-    ) {
-
-      if (wabaId) {
-        campoWaba.value = wabaId;
-      }
-
-      if (phoneId) {
-        campoPhone.value = phoneId;
-      }
-
-      registroRecibido = true;
-      actualizarEstado();
-
-      console.log('WABA_ID:', wabaId || 'NO RECIBIDO');
-      console.log('PHONE_NUMBER_ID:', phoneId || 'NO RECIBIDO');
-
-    } else if (response.event === 'CANCEL') {
-
-      estado.textContent = 'Proceso cancelado.';
-      console.warn('Cancelación:', data);
-
-      boton.disabled = false;
-
-    } else if (response.event === 'ERROR') {
-
-      estado.textContent = 'Meta informó un error.';
-      console.error('ERROR META:', data);
-
-      boton.disabled = false;
-
+    if (wabaId) {
+      campoWaba.value = String(wabaId);
     }
 
-  } catch (error) {
+    if (phoneId) {
+      campoPhone.value = String(phoneId);
+    }
 
-    console.error('Error procesando evento:', error);
+    registroRecibido = true;
+
+    actualizarEstado();
+
+    console.log('WABA_ID:', wabaId || 'NO RECIBIDO');
+    console.log('PHONE_NUMBER_ID:', phoneId || 'NO RECIBIDO');
+
+  } else if (response.event === 'CANCEL') {
+
+    estado.textContent = 'Proceso cancelado.';
+    console.warn('Cancelación:', data);
+    boton.disabled = false;
+
+  } else if (response.event === 'ERROR') {
+
+    estado.textContent = 'Meta informó un error.';
+    console.error('ERROR META:', data);
+    boton.disabled = false;
 
   }
 
